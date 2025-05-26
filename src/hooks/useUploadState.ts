@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react';
-import { simulateFileUpload } from '../utils/fileUtils';
 
 export const useUploadState = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -10,7 +9,7 @@ export const useUploadState = () => {
 
   const handleSubmit = useCallback(async () => {
     if (!file || !email) return;
-    
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setStatus('error');
@@ -23,20 +22,55 @@ export const useUploadState = () => {
     setMessage('');
 
     try {
-      // Simulate file upload with progress updates
-      await simulateFileUpload(
-        (currentProgress) => setProgress(currentProgress),
-        file.size
-      );
-
-      setStatus('success');
-      setMessage('Your file was uploaded successfully!');
+      // Start reading the file
+      const reader = new FileReader();
       
-      // In a real app, we would make an API call here to register the email
-      // and process the file on the server
+      reader.onload = async (e) => {
+        try {
+          const fileContent = e.target?.result as string;
+          setProgress(50); // File read complete
+
+          const response = await fetch('/.netlify/functions/upload-file', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email,
+              fileContent,
+            }),
+          });
+
+          setProgress(90); // Upload complete
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.message || 'Failed to process file');
+          }
+
+          setProgress(100);
+          setStatus('success');
+          setMessage(`Successfully processed ${data.quotesCount} quotes from your file!`);
+          
+          // Reset form
+          setFile(null);
+          setEmail('');
+        } catch (error) {
+          setStatus('error');
+          setMessage(error instanceof Error ? error.message : 'An error occurred while processing your file');
+        }
+      };
+
+      reader.onerror = () => {
+        setStatus('error');
+        setMessage('Failed to read the file');
+      };
+
+      reader.readAsText(file);
     } catch (error) {
       setStatus('error');
-      setMessage('An error occurred while uploading your file. Please try again.');
+      setMessage('An error occurred while processing your file');
     }
   }, [file, email]);
 
