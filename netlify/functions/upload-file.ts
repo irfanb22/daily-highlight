@@ -6,6 +6,12 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL!;
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+interface Quote {
+  text: string;
+  source: string;
+  link?: string;
+}
+
 const handler: Handler = async (event) => {
   // Enable CORS
   if (event.httpMethod === 'OPTIONS') {
@@ -27,12 +33,41 @@ const handler: Handler = async (event) => {
   }
 
   try {
-    const { email, fileContent } = JSON.parse(event.body || '{}');
+    const { email, fileContent, fileName } = JSON.parse(event.body || '{}');
 
-    if (!email || !fileContent) {
+    if (!email || !fileContent || !fileName) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ message: 'Missing email or file content' }),
+        body: JSON.stringify({ message: 'Missing required fields' }),
+      };
+    }
+
+    // Extract quotes based on file type
+    const fileExt = fileName.toLowerCase().split('.').pop();
+    let quotes: Quote[];
+    
+    try {
+      if (fileExt === 'json') {
+        quotes = parseJsonQuotes(fileContent);
+      } else {
+        quotes = parseTextQuotes(fileContent);
+      }
+    } catch (error) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ 
+          message: 'Invalid file format. Please check the example format.' 
+        }),
+      };
+    }
+
+    // Validate quotes
+    if (quotes.length === 0) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ 
+          message: 'No valid quotes found in file. Please check the format.' 
+        }),
       };
     }
 
@@ -59,7 +94,10 @@ const handler: Handler = async (event) => {
     // Create file upload record
     const { data: upload, error: uploadError } = await supabase
       .from('uploads')
-      .insert([{ user_id: user.id, filename: 'uploaded-file.txt' }])
+      .insert([{ 
+        user_id: user.id, 
+        filename: fileName 
+      }])
       .select()
       .single();
 
@@ -67,12 +105,13 @@ const handler: Handler = async (event) => {
       throw new Error(`Error creating upload record: ${uploadError.message}`);
     }
 
-    // Extract and store quotes
-    const quotes = extractQuotes(fileContent);
+    // Store quotes
     const quoteRecords = quotes.map(quote => ({
       user_id: user.id,
       upload_id: upload.id,
-      quote_text: quote
+      quote_text: quote.text,
+      source: quote.source,
+      link: quote.link
     }));
 
     const { error: quotesError } = await supabase
@@ -108,16 +147,39 @@ const handler: Handler = async (event) => {
   }
 };
 
-function extractQuotes(content: string): string[] {
-  // Split by double newlines or markdown headers
-  const blocks = content.split(/\n\s*\n|(?=^#{1,6}\s)/m);
+function parseJsonQuotes(content: string): Quote[] {
+  const data = JSON.parse(content);
+  if (!Array.isArray(data.quotes)) {
+    throw new Error('Invalid JSON format');
+  }
+
+  return data.quotes.map(quote => {
+    if (!quote.text || !quote.source) {
+      throw new Error('Each quote must have text and source');
+    }
+    return {
+      text: quote.text.trim(),
+      source: quote.source.trim(),
+      link: quote.link?.trim()
+    };
+  });
+}
+
+function parseTextQuotes(content: string): Quote[] {
+  const blocks = content.split('==').map(block => block.trim()).filter(Boolean);
   
-  // Clean up and filter empty blocks
-  return blocks
-    .map(block => block.trim())
-    .filter(block => block.length > 0)
-    // Remove markdown headers
-    .map(block => block.replace(/^#{1,6}\s+/m, ''));
+  return blocks.map(block => {
+    const parts = block.split('--').map(part => part.trim());
+    if (parts.length < 2) {
+      throw new Error('Each quote must have text and source');
+    }
+    
+    return {
+      text: parts[0],
+      source: parts[1],
+      link: parts[2]
+    };
+  });
 }
 
 export { handler };
