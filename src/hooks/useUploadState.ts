@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { supabase } from '../lib/supabase';
 
 export const useUploadState = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -6,6 +7,9 @@ export const useUploadState = () => {
   const [status, setStatus] = useState('idle'); // idle, uploading, success, error
   const [progress, setProgress] = useState(0);
   const [message, setMessage] = useState('');
+  const [showSignUp, setShowSignUp] = useState(false);
+  const [showAccountSetup, setShowAccountSetup] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
 
   const handleSubmit = useCallback(async () => {
     if (!file || !email) return;
@@ -22,13 +26,12 @@ export const useUploadState = () => {
     setMessage('');
 
     try {
-      // Start reading the file
       const reader = new FileReader();
       
       reader.onload = async (e) => {
         try {
           const fileContent = e.target?.result as string;
-          setProgress(50); // File read complete
+          setProgress(50);
 
           const response = await fetch('/.netlify/functions/upload-file', {
             method: 'POST',
@@ -38,10 +41,11 @@ export const useUploadState = () => {
             body: JSON.stringify({
               email,
               fileContent,
+              fileName: file.name
             }),
           });
 
-          setProgress(90); // Upload complete
+          setProgress(90);
 
           const data = await response.json();
 
@@ -53,9 +57,8 @@ export const useUploadState = () => {
           setStatus('success');
           setMessage(`Successfully processed ${data.quotesCount} quotes from your file!`);
           
-          // Reset form
-          setFile(null);
-          setEmail('');
+          // Show sign up modal
+          setShowSignUp(true);
         } catch (error) {
           setStatus('error');
           setMessage(error instanceof Error ? error.message : 'An error occurred while processing your file');
@@ -74,17 +77,37 @@ export const useUploadState = () => {
     }
   }, [file, email]);
 
+  const handleSignUpSuccess = (newUserId: string) => {
+    setUserId(newUserId);
+    setShowSignUp(false);
+    setShowAccountSetup(true);
+  };
+
+  const handleSetupComplete = () => {
+    setShowAccountSetup(false);
+    // Reset form
+    setFile(null);
+    setEmail('');
+    setStatus('idle');
+  };
+
   return {
     file,
     email,
     status,
     progress,
     message,
+    showSignUp,
+    showAccountSetup,
+    userId,
     setFile,
     setEmail,
     setStatus,
     setProgress,
     setMessage,
-    handleSubmit
+    setShowSignUp,
+    handleSubmit,
+    handleSignUpSuccess,
+    handleSetupComplete
   };
 };
