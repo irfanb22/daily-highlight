@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
-import { Upload, File } from 'lucide-react';
+import { Upload, File, Info } from 'lucide-react';
 import { isValidFileType } from '../utils/fileUtils';
+import FormatInstructions from './FormatInstructions';
 
 interface FileUploadProps {
   file: File | null;
@@ -18,6 +19,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
   setMessage 
 }) => {
   const [isDragging, setIsDragging] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -91,11 +93,19 @@ const FileUpload: React.FC<FileUploadProps> = ({
               <div className="w-12 h-12 bg-blue-100 rounded-full mx-auto flex items-center justify-center mb-3">
                 <Upload className="w-6 h-6 text-blue-600" />
               </div>
-              <p className="text-sm font-medium text-gray-700 mb-1">
-                Drag and drop your file here
-              </p>
+              <div className="flex items-center justify-center mb-1">
+                <p className="text-sm font-medium text-gray-700">
+                  Drag and drop your file here
+                </p>
+                <button
+                  onClick={() => setShowInstructions(!showInstructions)}
+                  className="ml-2 text-gray-400 hover:text-gray-600"
+                >
+                  <Info className="w-4 h-4" />
+                </button>
+              </div>
               <p className="text-xs text-gray-500 mb-3">
-                Supported file types: .txt, .json
+                Supported formats: .txt, .json
               </p>
             </>
           )}
@@ -119,35 +129,11 @@ const FileUpload: React.FC<FileUploadProps> = ({
         </div>
       </div>
 
-      <div className="bg-gray-50 rounded-lg p-4 text-sm">
-        <h3 className="font-medium text-gray-900 mb-2">File Format Examples:</h3>
-        
-        <div className="space-y-4">
-          <div>
-            <h4 className="text-gray-700 font-medium mb-1">.txt format:</h4>
-            <pre className="bg-white p-2 rounded border border-gray-200 text-gray-600 text-xs">
-{`Quote text here
--- Author/Source
--- https://example.com (optional)
-==
-Another quote
--- Another source`}</pre>
-          </div>
-          
-          <div>
-            <h4 className="text-gray-700 font-medium mb-1">.json format:</h4>
-            <pre className="bg-white p-2 rounded border border-gray-200 text-gray-600 text-xs">
-{`{
-  "quotes": [
-    {
-      "text": "Quote text",
-      "source": "Author/Source",
-      "link": "https://example.com"
-    }
-  ]
-}`}</pre>
-          </div>
-        </div>
+      {/* Format Instructions */}
+      <div className={`transition-all duration-300 overflow-hidden ${
+        showInstructions ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+      }`}>
+        <FormatInstructions />
       </div>
     </div>
   );
