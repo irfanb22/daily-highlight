@@ -111,7 +111,7 @@ const handler: Handler = async (event) => {
       content: quote.text,
       author: quote.source,
       source: quote.link,
-      tags: [],
+      tags: []
     }));
 
     const { error: quotesError } = await supabase
