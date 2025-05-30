@@ -43,23 +43,22 @@ export const useUploadState = () => {
       setProgress(75);
 
       let data;
-      try {
-        const text = await response.text();
-        try {
-          data = JSON.parse(text);
-        } catch (parseError) {
-          console.error('Failed to parse response:', text);
-          throw new Error('Invalid response from server');
-        }
-      } catch (error) {
-        throw new Error('Failed to read server response');
-      }
-
-      setProgress(100);
-
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to process quotes');
+        // Handle error responses
+        const errorText = await response.text();
+        try {
+          // Try to parse error response as JSON
+          data = JSON.parse(errorText);
+          throw new Error(data.message || `Error: ${response.statusText}`);
+        } catch (parseError) {
+          // If parsing fails, use the raw text or status
+          throw new Error(errorText || `Error: ${response.statusText}`);
+        }
       }
+
+      // Handle successful response
+      data = await response.json();
+      setProgress(100);
 
       setStatus('success');
       setMessage(`Successfully processed ${data.quotesCount} quotes!`);
