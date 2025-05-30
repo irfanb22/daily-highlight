@@ -82,3 +82,5 @@ const UploadSection: React.FC = () => {
     </>
   );
 };
+
+export default UploadSection
