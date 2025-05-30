@@ -1,5 +1,5 @@
 import React from 'react';
-import QuoteSpreadsheet from './QuoteSpreadsheet';
+import QuoteInput from './QuoteInput';
 import EmailForm from './EmailForm';
 import UploadStatus from './UploadStatus';
 import SignUpModal from './SignUpModal';
@@ -31,7 +31,7 @@ const UploadSection: React.FC = () => {
     <>
       <div className="bg-white rounded-xl shadow-md overflow-hidden transition-all duration-300">
         <div className="p-6 sm:p-8">
-          <QuoteSpreadsheet 
+          <QuoteInput 
             quotes={quotes}
             onChange={setQuotes}
           />
@@ -82,5 +82,3 @@ const UploadSection: React.FC = () => {
     </>
   );
 };
-
-export default UploadSection
