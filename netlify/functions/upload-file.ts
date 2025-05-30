@@ -33,42 +33,25 @@ const handler: Handler = async (event) => {
   }
 
   try {
-    const { email, fileContent, fileName } = JSON.parse(event.body || '{}');
+    const { email, quotes } = JSON.parse(event.body || '{}');
 
-    if (!email || !fileContent || !fileName) {
+    if (!email || !quotes || !Array.isArray(quotes) || quotes.length === 0) {
       return {
         statusCode: 400,
         body: JSON.stringify({ message: 'Missing required fields' }),
       };
     }
 
-    // Extract quotes based on file type
-    const fileExt = fileName.toLowerCase().split('.').pop();
-    let quotes: Quote[];
-    
-    try {
-      if (fileExt === 'json') {
-        quotes = parseJsonQuotes(fileContent);
-      } else {
-        quotes = parseTextQuotes(fileContent);
-      }
-    } catch (error) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ 
-          message: 'Invalid file format. Please check the example format.' 
-        }),
-      };
-    }
-
     // Validate quotes
-    if (quotes.length === 0) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ 
-          message: 'No valid quotes found in file. Please check the format.' 
-        }),
-      };
+    for (const quote of quotes) {
+      if (!quote.text || !quote.source) {
+        return {
+          statusCode: 400,
+          body: JSON.stringify({ 
+            message: 'Each quote must have text and source' 
+          }),
+        };
+      }
     }
 
     // Get or create user
@@ -89,20 +72,6 @@ const handler: Handler = async (event) => {
         throw new Error(`Error creating user: ${createError.message}`);
       }
       user = newUser;
-    }
-
-    // Create file upload record
-    const { data: upload, error: uploadError } = await supabase
-      .from('uploads')
-      .insert([{ 
-        user_id: user.id, 
-        filename: fileName 
-      }])
-      .select()
-      .single();
-
-    if (uploadError) {
-      throw new Error(`Error creating upload record: ${uploadError.message}`);
     }
 
     // Store quotes
@@ -128,58 +97,23 @@ const handler: Handler = async (event) => {
         'Access-Control-Allow-Origin': '*',
       },
       body: JSON.stringify({
-        message: 'File processed successfully',
+        message: 'Quotes processed successfully',
         quotesCount: quotes.length
       }),
     };
   } catch (error) {
-    console.error('Error processing upload:', error);
+    console.error('Error processing quotes:', error);
     return {
       statusCode: 500,
       headers: {
         'Access-Control-Allow-Origin': '*',
       },
       body: JSON.stringify({
-        message: 'Error processing upload',
+        message: 'Error processing quotes',
         error: error instanceof Error ? error.message : 'Unknown error'
       }),
     };
   }
 };
-
-function parseJsonQuotes(content: string): Quote[] {
-  const data = JSON.parse(content);
-  if (!Array.isArray(data.quotes)) {
-    throw new Error('Invalid JSON format');
-  }
-
-  return data.quotes.map(quote => {
-    if (!quote.text || !quote.source) {
-      throw new Error('Each quote must have text and source');
-    }
-    return {
-      text: quote.text.trim(),
-      source: quote.source.trim(),
-      link: quote.link?.trim()
-    };
-  });
-}
-
-function parseTextQuotes(content: string): Quote[] {
-  const blocks = content.split('==').map(block => block.trim()).filter(Boolean);
-  
-  return blocks.map(block => {
-    const parts = block.split('--').map(part => part.trim());
-    if (parts.length < 2) {
-      throw new Error('Each quote must have text and source');
-    }
-    
-    return {
-      text: parts[0],
-      source: parts[1],
-      link: parts[2]
-    };
-  });
-}
 
 export { handler };

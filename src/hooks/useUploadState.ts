@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import type { Quote } from '../components/QuoteSpreadsheet';
 
 export const useUploadState = () => {
-  const [file, setFile] = useState<File | null>(null);
+  const [quotes, setQuotes] = useState<Quote[]>([]);
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState('idle'); // idle, uploading, success, error
   const [progress, setProgress] = useState(0);
@@ -12,7 +13,7 @@ export const useUploadState = () => {
   const [userId, setUserId] = useState<string | null>(null);
 
   const handleSubmit = useCallback(async () => {
-    if (!file || !email) return;
+    if (quotes.length === 0 || !email) return;
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
@@ -26,56 +27,38 @@ export const useUploadState = () => {
     setMessage('');
 
     try {
-      const reader = new FileReader();
+      setProgress(50);
+
+      const response = await fetch('/.netlify/functions/upload-file', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          quotes: quotes.map(({ id, ...quote }) => quote) // Remove internal id before sending
+        }),
+      });
+
+      setProgress(90);
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to process quotes');
+      }
+
+      setProgress(100);
+      setStatus('success');
+      setMessage(`Successfully processed ${data.quotesCount} quotes!`);
       
-      reader.onload = async (e) => {
-        try {
-          const fileContent = e.target?.result as string;
-          setProgress(50);
-
-          const response = await fetch('/.netlify/functions/upload-file', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              email,
-              fileContent,
-              fileName: file.name
-            }),
-          });
-
-          setProgress(90);
-
-          const data = await response.json();
-
-          if (!response.ok) {
-            throw new Error(data.message || 'Failed to process file');
-          }
-
-          setProgress(100);
-          setStatus('success');
-          setMessage(`Successfully processed ${data.quotesCount} quotes from your file!`);
-          
-          // Show sign up modal
-          setShowSignUp(true);
-        } catch (error) {
-          setStatus('error');
-          setMessage(error instanceof Error ? error.message : 'An error occurred while processing your file');
-        }
-      };
-
-      reader.onerror = () => {
-        setStatus('error');
-        setMessage('Failed to read the file');
-      };
-
-      reader.readAsText(file);
+      // Show sign up modal
+      setShowSignUp(true);
     } catch (error) {
       setStatus('error');
-      setMessage('An error occurred while processing your file');
+      setMessage(error instanceof Error ? error.message : 'An error occurred while processing your quotes');
     }
-  }, [file, email]);
+  }, [quotes, email]);
 
   const handleSignUpSuccess = (newUserId: string) => {
     setUserId(newUserId);
@@ -86,13 +69,13 @@ export const useUploadState = () => {
   const handleSetupComplete = () => {
     setShowAccountSetup(false);
     // Reset form
-    setFile(null);
+    setQuotes([]);
     setEmail('');
     setStatus('idle');
   };
 
   return {
-    file,
+    quotes,
     email,
     status,
     progress,
@@ -100,7 +83,7 @@ export const useUploadState = () => {
     showSignUp,
     showAccountSetup,
     userId,
-    setFile,
+    setQuotes,
     setEmail,
     setStatus,
     setProgress,

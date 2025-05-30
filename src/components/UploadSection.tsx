@@ -1,5 +1,5 @@
 import React from 'react';
-import FileUpload from './FileUpload';
+import QuoteSpreadsheet from './QuoteSpreadsheet';
 import EmailForm from './EmailForm';
 import UploadStatus from './UploadStatus';
 import SignUpModal from './SignUpModal';
@@ -8,7 +8,7 @@ import { useUploadState } from '../hooks/useUploadState';
 
 const UploadSection: React.FC = () => {
   const { 
-    file, 
+    quotes,
     email, 
     status, 
     progress, 
@@ -16,7 +16,7 @@ const UploadSection: React.FC = () => {
     showSignUp,
     showAccountSetup,
     userId,
-    setFile, 
+    setQuotes,
     setEmail, 
     setStatus,
     setProgress,
@@ -31,12 +31,9 @@ const UploadSection: React.FC = () => {
     <>
       <div className="bg-white rounded-xl shadow-md overflow-hidden transition-all duration-300">
         <div className="p-6 sm:p-8">
-          <FileUpload 
-            file={file} 
-            setFile={setFile}
-            status={status}
-            setStatus={setStatus}
-            setMessage={setMessage}
+          <QuoteSpreadsheet 
+            quotes={quotes}
+            onChange={setQuotes}
           />
           
           <EmailForm 
@@ -54,14 +51,14 @@ const UploadSection: React.FC = () => {
           <div className="mt-6">
             <button
               className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
-                !file || !email || status === 'uploading'
+                quotes.length === 0 || !email || status === 'uploading'
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   : 'bg-blue-500 hover:bg-blue-600 text-white shadow-md hover:shadow-lg'
               }`}
-              disabled={!file || !email || status === 'uploading'}
+              disabled={quotes.length === 0 || !email || status === 'uploading'}
               onClick={handleSubmit}
             >
-              {status === 'uploading' ? 'Uploading...' : 'Subscribe to Daily Quotes'}
+              {status === 'uploading' ? 'Processing...' : 'Subscribe to Daily Quotes'}
             </button>
           </div>
         </div>
@@ -85,5 +82,3 @@ const UploadSection: React.FC = () => {
     </>
   );
 };
-
-export default UploadSection;
